@@ -1,4 +1,4 @@
-import pytorch
+import torch
 import PIL
 import torchvision.transforms as tsfm
 import torchvision.datasets.ImageFolder as ImageFolder
@@ -24,7 +24,7 @@ class ResizeMultiple:
 
 class CenterCropMultiple:
     def __call__(self, images):
-        if not isintance(images, list):
+        if not isinstance(images, list):
             images = [images]
         crops = [tsfm.CenterCrop(min(image.size))(image) for image in images]
 
@@ -65,7 +65,7 @@ class FiveAndOneCropMultiple:
 
 class ThreeCropMultiple:
     def __call__(self, images):
-        if not isintance(images, list):
+        if not isinstance(images, list):
             images = [images]
         crops = []
         for image in images:
@@ -113,7 +113,7 @@ class GridCropMultiple:
 
 class HorizontalFlipMultiple:
     def __call__(self, images):
-        if not isintance(images, list):
+        if not isinstance(images, list):
             images = [images]
         flipped = []
         for image in images:
