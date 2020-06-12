@@ -1,5 +1,5 @@
 import pytorch
-from PIL import Image as PImage
+import PIL
 import torchvision.transforms as tsfm
 import torchvision.datasets.ImageFolder as ImageFolder
 
@@ -18,10 +18,17 @@ class ResizeMultiple:
         resized_images = []
         for size in self.sizes:
             for image in images:
-                resized_images.append(tsfm.functional.resize(image, sizes))
+                resized_images.append(tsfm.functional.resize(image, size))
 
         return resized_images
 
+class CenterCropMultiple:
+    def __call__(self, images):
+        if not isintance(images, list):
+            images = [images]
+        crops = [tsfm.CenterCrop(min(image.size))(image) for image in images]
+
+        return crops
 
 class FiveCropMultiple:
     def __init__(self, size):
@@ -37,11 +44,48 @@ class FiveCropMultiple:
         return crops
 
 class FiveAndOneCropMultiple:
+    """Callable class for image transform
+    its __call__ takes a PIL image or a list of PIL images and returns
+    a list of 5 crops and the image resized to crop size.
+    """
     def __init__(self, size):
         self.size = size
     
     def __call__(self, images):
+        if not isinstance(images, list):
+            images = [images]
+        crops = []
+        for image in images:
+            assert image.width == image.height, "image is not square"
+            crops.extend(tsfm.FiveCrop(self.size)(image))
+            crops.append(tsfm.functional.resize(image, self.size))
         
+        return crops
+
+
+class ThreeCropMultiple:
+    def __call__(self, images):
+        if not isintance(images, list):
+            images = [images]
+        crops = []
+        for image in images:
+            if image.width > image.height:
+                # return left, center, right crops
+                size = image.height
+                stride = (image.width - size) / 3
+                for step in range(3):
+                    left = int(step * stride)
+                    crops.append(image.crop((left, 0, left + size, size)))
+            else:
+                # return top, center, right crops
+                size = image.width
+                stride = (image.height - size) / 3
+                for step in range(3):
+                    top = int(step * stride)
+                    crops.append(image.crop((0, top, size, top + size)))
+            
+        return crops
+
 
 class GridCropMultiple:
     def __init__(self, size, steps = 5):
@@ -65,7 +109,28 @@ class GridCropMultiple:
                     crops.append(image.crop(box))
 
         return crops
-    
+
+
+class HorizontalFlipMultiple:
+    def __call__(self, images):
+        if not isintance(images, list):
+            images = [images]
+        flipped = []
+        for image in images:
+            flipped.append(PIL.ImageOps.mirror(image))
+        return images + flipped
+
+class ToTenorMultiple:
+    """Callable class for image transform
+    Convert a list of PIL images and stack them to a 4-D tensor
+    [num_crops, h, w, channels]
+    """
+    def __call__(self, images):
+        if not isinstance(images, list):
+            images = [images]
+        images = torch.stack([tsfm.ToTensor()(image) for image in images])
+
+        return images
 
 
 class EvalDataset(ImageFolder):
@@ -73,38 +138,68 @@ class EvalDataset(ImageFolder):
         self,
         imdir,
         input_size = 224,
-        rescale_sizes = [(256, 256)],
-        crop = "alex",
+        rescale_sizes = [256],
+        center_square = False,
+        crop = "fivecrop",
+        pixel_mean = [0.485, 0.456, 0.406],
+
         horizontal_flip = True
     ):
         """Initialise the class
 
         Args:
             imdir (str): The root directory for all images
-            input_size (int or None): The size of network input.
-                If input_size is None, then image is not cropped.
+            input_size (int): The size of network input.
+                If crop argument is None, then this argument is ignored.
             rescale_sizes (list): The elements can be either int or tuple. 
                 Tuple defines the exact size the image to be resized to before cropping.
                 Int defines the size the shorter image dimension to be resized to.
                 (default is False)
-            crop (str): Must be of "alex", "vgg" or "inception". 
-                this argument is ignored if input_size is None. i.e. The rescaled images are returned without cropping.
+            center_square (bool): Whether to take the center square of the image.
+            crop (str, None): Must be of "fivecrop", "gridcrop", "inception" or None. 
+                If this argument is None, the rescaled images are returned without cropping.
             horizontal_flip (bool): Whether to make copies of the crops' horizontal flip.
 
         Returns:
             None
         """
 
-        self.im_dir = im_dir
+        self.imdir = imdir
         self.input_size =  input_size
         self.rescale_sizes = rescale_sizes
-        assert crop in ["alex", "inception", "vgg", None], "crop can only be one of ['alex', 'inception', 'vgg', None]"
+        assert crop in ["fivecrop", "inception", "gridcrop", None], "crop can only be one of ['alex', 'inception', 'vgg', None]"
+        self.center_square = center_square
         self.crop = crop
-        self.flip = horizontal_flip
-    
+        self.horizontal_flip = horizontal_flip
+        transforms = self._get_transforms()
+        self.super().__init__(root = self.imdir, transform = transforms)
     
 
     def _get_transforms(self):
         transforms = []
-        transforms.append(self.ResizeMultiple(self.rescale_sizes))
 
+        transforms.append(ResizeMultiple(self.rescale_sizes))
+
+        if self.center_square:
+            transforms.append(CenterCropMultiple())
+
+        if self.crop == "fivecrop":
+            transforms.append(FiveCropMultiple(self.input_size))
+        elif self.crop == "gridcrop":
+            transforms.append(GridCropMultiple(self.input_size))
+        elif self.crop == "inception":
+            transforms.append(ThreeCropMultiple())
+            transfroms.append(FiveAndOneCropMultiple(self.input_size))
+        
+        if self.horizontal_flip:
+            transforms.append(HorizontalFlipMultiple())
+        
+        transforms.append(ToTensorMultiple())
+
+        transfroms = tsfm.compose(transforms)
+
+        return transforms
+            
+
+if __name__ == "__main__":
+    pass
