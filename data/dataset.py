@@ -1,5 +1,6 @@
 import torch
 import PIL
+import torchvision
 import torchvision.transforms as tsfm
 from torchvision.datasets import ImageFolder as ImageFolder
 
@@ -155,7 +156,8 @@ class EvalDataset(ImageFolder):
         crop = "fivecrop",
         mean = [0.485, 0.456, 0.406],
         std = [0.229, 0.224, 0.225],
-        horizontal_flip = True
+        horizontal_flip = True,
+        debug = False
     ):
         """Initialise the class
 
@@ -173,8 +175,9 @@ class EvalDataset(ImageFolder):
             horizontal_flip (bool): Whether to make copies of the crops' horizontal flip.
             mean (list): The RGB pixel mean for normalization.
             std (list): The RGB pixel standard deviation for normalization.
+            debug (bool): Whether to return filename in __getitem__.
         Returns:
-            None
+            Dataset whose __getitem__ returns a 4D tensor of [Num_crops, channels, H, W]
         """
 
         self.imdir = imdir
@@ -186,13 +189,13 @@ class EvalDataset(ImageFolder):
         self.horizontal_flip = horizontal_flip
         self.mean = mean
         self.std = std
+        self.debug = debug
         transforms = self._get_transforms()
         super().__init__(root = self.imdir, transform = transforms)
 
 
     def _get_transforms(self):
         transforms = []
-
         
         transforms.append(ResizeMultiple(self.rescale_sizes))
 
@@ -219,20 +222,89 @@ class EvalDataset(ImageFolder):
 
         return transforms
 
+    def __getitem__(self, idx):
+        tensor, label = super().__getitem__(idx)
+        if self.debug:
+            return (tensor, label, self.imgs[idx][0])
+        return (tensor, label)
+
+
+
 
 if __name__ == "__main__":
+    import os
     from tensorboardX import SummaryWriter
-    writer = SummaryWriter("logs/dataset/")
-    dataset_dir = "../datasets/imagenet/ILSVRC2015/Data/CLS-LOC/val"
+    writer = SummaryWriter("../logs/dataset/tensorboard/")
+    imagenet_dir = "../../datasets/imagenet/ILSVRC2015/Data/CLS-LOC/"
+    val_dir = os.path.join(imagenet_dir, "val")
+    debug = True
+    
+    # imagenet mean and std
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
-    dataset = EvalDataset(
-        imdir = dataset_dir, 
-        mean = mean, 
-        std = std,
-        rescale_sizes = [256, 384, 512],
-        center_square = True,
-        crop = "gridcrop"
-        )
-    
-    print(dataset[0][0].shape)
+
+    # create an eval config dictionary for testing
+    eval_configs = {}
+    eval_configs["AlexNet"] = {
+        "imdir" : val_dir, 
+        "mean" : mean, 
+        "std" : std,
+        "rescale_sizes" : [256],
+        "center_square" : True,
+        "crop" : "fivecrop",
+        "horizontal_flip" : True,
+        "debug" : debug
+    }
+
+    eval_configs["VGG16_dense"] = {
+        "imdir" : val_dir, 
+        "mean" : mean, 
+        "std" : std,
+        "rescale_sizes" : [256],
+        "center_square" : False,
+        "crop" : None,
+        "horizontal_flip" : False,
+        "debug" : debug
+    }
+
+    eval_configs["VGG16_Multi_Crop"] = {
+        "imdir" : val_dir, 
+        "input_size" : 224,
+        "mean" : mean, 
+        "std" : std,
+        "rescale_sizes" : [224, 256, 288],
+        "center_square" : False,
+        "crop" : "gridcrop",
+        "horizontal_flip" : True,
+        "debug" : debug
+    }
+
+    eval_configs["Inception"] = {
+        "imdir" : val_dir, 
+        "input_size" : 224,
+        "mean" : mean, 
+        "std" : std,
+        "rescale_sizes" : [256, 288, 320, 352],
+        "center_square" : False,
+        "crop" : "inception",
+        "horizontal_flip" : True,
+        "debug" : debug
+    }
+
+    # Checking different eval settings
+    for eval_name in eval_configs:
+        dataset = EvalDataset(
+            **eval_configs[eval_name]
+            )
+        
+        print(f"{eval_name} eval shape: ", dataset[0][0].shape)
+        print("Label: ", dataset[0][1])
+        if debug:
+            print("Filename is: ", dataset[0][2])
+
+        images = dataset[0][0]
+        images = torchvision.utils.make_grid(images, normalize = True)
+        writer.add_image(eval_name,  images, global_step = 0)
+
+    # Remember to close the writer to flush all unfinished write operation
+    writer.close()
