@@ -24,10 +24,16 @@ class ResizeMultiple:
         return resized_images
 
 class CenterCropMultiple:
+    def __init__(self, size = None):
+        self.size = size
+
     def __call__(self, images):
         if not isinstance(images, list):
             images = [images]
-        crops = [tsfm.CenterCrop(min(image.size))(image) for image in images]
+        if self.size:
+            crops = [tsfm.CenterCrop(self.size)(image) for image in images]
+        else:
+            crops = [tsfm.CenterCrop(min(image.size))(image) for image in images]
 
         return crops
 
@@ -157,7 +163,7 @@ class EvalDataset(ImageFolder):
         mean = [0.485, 0.456, 0.406],
         std = [0.229, 0.224, 0.225],
         horizontal_flip = True,
-        debug = False
+        fname = False
     ):
         """Initialise the class
 
@@ -170,12 +176,12 @@ class EvalDataset(ImageFolder):
                 Int defines the size the shorter image dimension to be resized to.
                 (default is False)
             center_square (bool): Whether to take the center square of the image.
-            crop (str, None): Must be of "fivecrop", "gridcrop", "inception" or None.
+            crop (str, None): Must be of "fivecrop", "gridcrop", "center", "inception" or None.
                 If this argument is None, the rescaled images are returned without cropping.
             horizontal_flip (bool): Whether to make copies of the crops' horizontal flip.
             mean (list): The RGB pixel mean for normalization.
             std (list): The RGB pixel standard deviation for normalization.
-            debug (bool): Whether to return filename in __getitem__.
+            fname (bool): Whether to return filename in __getitem__.
         Returns:
             Dataset whose __getitem__ returns a 4D tensor of [Num_crops, channels, H, W]
         """
@@ -183,13 +189,13 @@ class EvalDataset(ImageFolder):
         self.imdir = imdir
         self.input_size =  input_size
         self.rescale_sizes = rescale_sizes
-        assert crop in ["fivecrop", "inception", "gridcrop", None], "crop can only be one of ['alex', 'inception', 'vgg', None]"
+        assert crop in ["fivecrop", "inception", "center", "gridcrop", None], "crop can only be one of ['fivecrop', 'inception', 'center', 'gridcrop', None]"
         self.center_square = center_square
         self.crop = crop
         self.horizontal_flip = horizontal_flip
         self.mean = mean
         self.std = std
-        self.debug = debug
+        self.fname = fname
         transforms = self._get_transforms()
         super().__init__(root = self.imdir, transform = transforms)
 
@@ -202,7 +208,9 @@ class EvalDataset(ImageFolder):
         if self.center_square:
             transforms.append(CenterCropMultiple())
 
-        if self.crop == "fivecrop":
+        if self.crop == "center":
+            transforms.append(CenterCropMultiple(self.input_size))
+        elif self.crop == "fivecrop":
             transforms.append(FiveCropMultiple(self.input_size))
         elif self.crop == "gridcrop":
             transforms.append(GridCropMultiple(self.input_size))
@@ -224,9 +232,10 @@ class EvalDataset(ImageFolder):
 
     def __getitem__(self, idx):
         tensor, label = super().__getitem__(idx)
-        if self.debug:
-            return (tensor, label, self.imgs[idx][0])
-        return (tensor, label)
+        data = {"image": tensor, "label": label}
+        if self.fname:
+            data["fname"] = self.imgs[idx]
+        return data
 
 
 
@@ -237,7 +246,7 @@ if __name__ == "__main__":
     writer = SummaryWriter("../logs/dataset/tensorboard/")
     imagenet_dir = "../../datasets/imagenet/ILSVRC2015/Data/CLS-LOC/"
     val_dir = os.path.join(imagenet_dir, "val")
-    debug = True
+    fname = True
     
     # imagenet mean and std
     mean = [0.485, 0.456, 0.406]
@@ -253,7 +262,7 @@ if __name__ == "__main__":
         "center_square" : True,
         "crop" : "fivecrop",
         "horizontal_flip" : True,
-        "debug" : debug
+        "fname" : fname
     }
 
     eval_configs["VGG16_dense"] = {
@@ -264,7 +273,7 @@ if __name__ == "__main__":
         "center_square" : False,
         "crop" : None,
         "horizontal_flip" : False,
-        "debug" : debug
+        "fname" : fname
     }
 
     eval_configs["VGG16_Multi_Crop"] = {
@@ -276,7 +285,7 @@ if __name__ == "__main__":
         "center_square" : False,
         "crop" : "gridcrop",
         "horizontal_flip" : True,
-        "debug" : debug
+        "fname" : fname
     }
 
     eval_configs["Inception"] = {
@@ -288,7 +297,7 @@ if __name__ == "__main__":
         "center_square" : False,
         "crop" : "inception",
         "horizontal_flip" : True,
-        "debug" : debug
+        "fname" : fname
     }
 
     # Checking different eval settings
@@ -297,14 +306,14 @@ if __name__ == "__main__":
             **eval_configs[eval_name]
             )
         
-        print(f"{eval_name} eval shape: ", dataset[0][0].shape)
-        print("Label: ", dataset[0][1])
-        if debug:
-            print("Filename is: ", dataset[0][2])
+        print(f"{eval_name} eval shape: ", dataset[0]['image'].shape)
+        print("Label: ", dataset[0]['label'])
+        if fname:
+            print("Filename is: ", dataset[0]['fname'])
 
-        images = dataset[0][0]
+        images = dataset[0]['image']
         images = torchvision.utils.make_grid(images, normalize = True)
-        writer.add_image(eval_name,  images, global_step = 0)
+        writer.add_image(eval_name, images, global_step = 0)
 
     # Remember to close the writer to flush all unfinished write operation
     writer.close()
