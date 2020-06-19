@@ -176,7 +176,7 @@ class EvalDataset(ImageFolder):
                 Int defines the size the shorter image dimension to be resized to.
                 (default is False)
             center_square (bool): Whether to take the center square of the image.
-            crop (str, None): Must be of "fivecrop", "gridcrop", "center", "inception" or None.
+            crop (str, None): Must be of "fivecrop", "gridcrop", "center", "googlenet" or None.
                 If this argument is None, the rescaled images are returned without cropping.
             horizontal_flip (bool): Whether to make copies of the crops' horizontal flip.
             mean (list): The RGB pixel mean for normalization.
@@ -189,7 +189,7 @@ class EvalDataset(ImageFolder):
         self.imdir = imdir
         self.input_size =  input_size
         self.rescale_sizes = rescale_sizes
-        assert crop in ["fivecrop", "inception", "center", "gridcrop", None], "crop can only be one of ['fivecrop', 'inception', 'center', 'gridcrop', None]"
+        assert crop in ["fivecrop", "googlenet", "center", "gridcrop", None], "crop can only be one of ['fivecrop', 'googlenet', 'center', 'gridcrop', None]"
         self.center_square = center_square
         self.crop = crop
         self.horizontal_flip = horizontal_flip
@@ -214,7 +214,7 @@ class EvalDataset(ImageFolder):
             transforms.append(FiveCropMultiple(self.input_size))
         elif self.crop == "gridcrop":
             transforms.append(GridCropMultiple(self.input_size))
-        elif self.crop == "inception":
+        elif self.crop == "googlenet":
             transforms.append(ThreeCropMultiple())
             transforms.append(FiveAndOneCropMultiple(self.input_size))
 
@@ -288,14 +288,14 @@ if __name__ == "__main__":
         "fname" : fname
     }
 
-    eval_configs["Inception"] = {
+    eval_configs["googlenet"] = {
         "imdir" : val_dir, 
         "input_size" : 224,
         "mean" : mean, 
         "std" : std,
         "rescale_sizes" : [256, 288, 320, 352],
         "center_square" : False,
-        "crop" : "inception",
+        "crop" : "googlenet",
         "horizontal_flip" : True,
         "fname" : fname
     }
