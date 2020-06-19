@@ -22,7 +22,7 @@ if __name__ == "__main__":
     from utils import AverageMeter
     from tqdm import tqdm
 
-    alexnet = torchvision.models.alexnet(pretrained = True)
+    model = torchvision.models.googlenet(pretrained=True)
 
     fname = True
     imagenet_dir = "../../datasets/imagenet/ILSVRC2015/Data/CLS-LOC/"
@@ -36,27 +36,33 @@ if __name__ == "__main__":
         "std" : std,
         "rescale_sizes" : [256],
         "center_square" : True,
-        "crop" : "fivecrop",
-        "horizontal_flip" : True,
+        "crop" : "center",
+        "horizontal_flip" : False,
         "fname" : fname
     }
 
     eval_dataset = EvalDataset(**alexnet_data_config)
-    eval_loader = DataLoader(eval_dataset, batch_size = 32)
+    eval_loader = DataLoader(eval_dataset, batch_size = 256)
 
     top1_meter = AverageMeter()
     top5_meter = AverageMeter()
     softmax = nn.Softmax(-1)
+
+    if torch.cuda.is_available():
+        model = model.cuda()
+
     with torch.no_grad():
         for i, data in enumerate(tqdm(eval_loader)):
             images = data['image']
             labels = data['label']
+            images = images.cuda()
+            labels = labels.cuda()
             # remember our dataset already returns a 4D tensor of [ncorp, c, h, w]
             # dataloader will add a new bs dimension
             bs, ncrops, c, h, w = images.size()
             images = images.view((-1, c, h, w))
             labels = labels.view((bs, 1))
-            result = alexnet(images)
+            result = model(images)
             prob = softmax(result)
             prob = prob.view((bs, ncrops, -1))
             prob = torch.mean(prob, dim = 1)
@@ -67,6 +73,16 @@ if __name__ == "__main__":
 
     print(f"Top 1 accuracy: {top1_meter.avg}")
     print(f"Top 5 accuracy: {top5_meter.avg}")
-    # with open("logs.txt", "w+") as f:
-    #     f.write(f"Top 1 accuracy: {top1_meter.avg}\n")
-    #     f.write(f"Top 5 accuracy: {top5_meter.avg}")
+
+    # 10 crops:
+    # Top 1 accuracy: 0.57818
+    # Top 5 accuracy: 0.8005
+
+    # vgg16 center crop
+    # Top 1 accuracy: 0.68828
+    # Top 5 accuracy: 0.8872600000572205
+
+
+    with open("logs.txt", "w+") as f:
+        f.write(f"Top 1 accuracy: {top1_meter.avg}\n")
+        f.write(f"Top 5 accuracy: {top5_meter.avg}")
