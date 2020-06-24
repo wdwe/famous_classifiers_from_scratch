@@ -201,3 +201,5 @@ if __name__ == "__main__":
     eval_dataset = EvalDataset(**dataset_config)
     eval_loader = DataLoader(eval_dataset, batch_size = 50, num_workers = 8)
     evaluate(my_conv_alex, eval_loader, topk = (1, 5), verbose = True, device = device)
+    # Top 1 accuracy: 0.5791200002357364
+    # Top 5 accuracy: 0.8041599987149238
