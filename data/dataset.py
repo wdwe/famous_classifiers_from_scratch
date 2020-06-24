@@ -243,7 +243,7 @@ class EvalDataset(ImageFolder):
 if __name__ == "__main__":
     import os
     from tensorboardX import SummaryWriter
-    writer = SummaryWriter("../logs/dataset/tensorboard/")
+    writer = SummaryWriter("../logs/dataset/eval/tensorboard/")
     imagenet_dir = "../../datasets/imagenet/ILSVRC2015/Data/CLS-LOC/"
     val_dir = os.path.join(imagenet_dir, "val")
     fname = True
@@ -288,7 +288,7 @@ if __name__ == "__main__":
         "fname" : fname
     }
 
-    eval_configs["googlenet"] = {
+    eval_configs["GoogLeNet"] = {
         "imdir" : val_dir, 
         "input_size" : 224,
         "mean" : mean, 
@@ -299,19 +299,19 @@ if __name__ == "__main__":
         "horizontal_flip" : True,
         "fname" : fname
     }
-
+    
     # Checking different eval settings
     for eval_name in eval_configs:
         dataset = EvalDataset(
             **eval_configs[eval_name]
             )
         
-        print(f"{eval_name} eval shape: ", dataset[0]['image'].shape)
-        print("Label: ", dataset[0]['label'])
+        print(f"{eval_name} eval shape: ", dataset[678]['image'].shape)
+        print("Label: ", dataset[678]['label'])
         if fname:
-            print("Filename is: ", dataset[0]['fname'])
+            print("Filename is: ", dataset[678]['fname'])
 
-        images = dataset[0]['image']
+        images = dataset[678]['image']
         images = torchvision.utils.make_grid(images, normalize = True)
         writer.add_image(eval_name, images, global_step = 0)
 
