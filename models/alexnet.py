@@ -2,7 +2,7 @@ import torch.nn as nn
 
 class AlexNet(nn.Module):
     def __init__(self, num_classes = 1000, head = "fc"):
-        assert head in ["fc", "conv"], "head must be fc or conv"
+        assert head in ["fc", "conv"], "classification head must be fc or conv"
         super().__init__()
         self.features = nn.Sequential(
             # 1st conv

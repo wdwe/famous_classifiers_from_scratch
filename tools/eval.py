@@ -65,6 +65,7 @@ def evaluate(model, dataloader, topk = (1, ), verbose = False, device = None):
         for i, meter in enumerate(accu_meters):
             print(f"Top {topk[i]} accuracy: {meter.avg}")
 
+    return accu_meters
 
 if __name__ == "__main__":
     import sys
