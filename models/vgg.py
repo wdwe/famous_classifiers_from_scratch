@@ -30,6 +30,11 @@ config = {
     "vgg19": [64, 64, "m", 128, 128, "m", 256, 256, 256, 256, "m", 512, 512, 512, 512, "m", 512, 512, 512, 512, "m"]
 }
 
+# for "from vgg import *" in __init__.py
+__all__ = [
+    'VGG', 'vgg11', 'vgg13', 'vgg16', 'vgg19', 
+    'vgg11_bn', 'vgg13_bn', 'vgg16_bn', 'vgg19_bn'
+]
 
 class VGG(nn.Module):
     def __init__(self, name, num_classes = 1000, head = "fc", bn = False, init_weights = True):
@@ -40,6 +45,13 @@ class VGG(nn.Module):
         else:
             self.classifier = self._get_conv_classifier(num_classes)
 
+        if init_weights:
+            self.init_weights()
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
     
     def _get_conv_layers(self, name):
         cfg = config[name]
@@ -57,7 +69,7 @@ class VGG(nn.Module):
                     # batch normalisation is usually added after convolution
                     # before activations, though some researchers may argue for the
                     # case of putting it after activation
-                    layers.append(nn.BatchNorm2D(layer))
+                    layers.append(nn.BatchNorm2d(layer))
                 # append ReLU activation
                 # again, inplace is set to True to save memory
                 layers.append(nn.ReLU(inplace = True))
@@ -108,3 +120,65 @@ class VGG(nn.Module):
 
     def _init_weights(self):
         # use a mix of Kaiming init and Xavier init
+        for module in self.modules():
+            # self.modules return an iterators of all the modules
+            # Most of the nn layers are subclass of the nn.Module, 
+            # as is our network. It iterate in a depth-first manner
+            if isinstance(module, nn.Conv2d):
+                # if the module that we are currently referring to is an
+                # instance of nn.Conv2d, we will use kaiming init
+                # https://datascience.stackexchange.com/questions/13061/when-to-use-he-or-glorot-normal-initialization-over-uniform-init-and-what-are
+                # https://discuss.pytorch.org/t/how-fan-in-and-fan-out-work-in-torch-nn-init/40013
+                # https://sebastianraschka.com/pdf/lecture-notes/stat479ss19/L11_weight-init_slides.pdf
+
+                nn.init.kaiming_normal_(module.weight.data, mode = 'fan-in', nonlinearity='relu')
+            elif isinstance(module, nn.BatchNorm2d):
+                # https://discuss.pytorch.org/t/batchnorm-initialization/16184/2
+                # older version of pytorch init nn.BatchNorm2d's weight with uniform
+                # distribution and bias with 0. That apparently makes training converge
+                # more slowly.
+                nn.init.constant_(module.weight.data, 1)
+                nn.init.constant_(module.bias.data, 0)
+            elif isinstance(module, nn.Linear):
+                nn.init.normal_(module.weight.data, 0, 0.01)
+                nn.init.constant_(module.bias.data, 0)
+
+def vgg11(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg11", num_classes = num_classes, head = "fc", bn = False)
+
+def vgg13(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg13", num_classes = num_classes, head = "fc", bn = False)
+
+def vgg16(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg16", num_classes = num_classes, head = "fc", bn = False)
+
+def vgg19(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg19", num_classes = num_classes, head = "fc", bn = False)
+
+def vgg11_bn(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg11", num_classes = num_classes, head = "fc", bn = True)
+
+def vgg13_bn(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg13", num_classes = num_classes, head = "fc", bn = True)
+
+def vgg16_bn(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg16", num_classes = num_classes, head = "fc", bn = True)
+
+def vgg19_bn(num_classes = 1000, head = "fc", pretrained = False):
+    if pretrained == True:
+        raise Exception("Pretrained model is not implemented yet")
+    return VGG("vgg19", num_classes = num_classes, head = "fc", bn = True)
