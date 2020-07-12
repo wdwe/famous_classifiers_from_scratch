@@ -19,15 +19,13 @@ class ResizeMultiple:
         else:
             raise Exception("Unknown interpolation method")
 
-
-    interpolation = PIL.Image.BICUBIC
     def __call__(self, images):
         if not isinstance(images, list):
             images = [images]
         resized_images = []
         for size in self.sizes:
             for image in images:
-                resized_images.append(tsfm.functional.resize(image, size))
+                resized_images.append(tsfm.functional.resize(image, size, interpolation = self.interpolation))
 
         return resized_images
 
