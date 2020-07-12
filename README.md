@@ -21,9 +21,9 @@ Training DataAugmentation
 |----------------------------|-------------------------------------------------------------------------------------------|
 | Random Crops               | Resize the image's shorter side to 256 and randomly crop it to 224x224.                   |
 | Random Horizontal Flipping | Flip the crop with a 50% chance                                                           |
-| Random Scales              | Similar to random crops. However, the shorter size of the image<br> is resized to a valuerandomly chosen from a range instead of being fixed at 256.         |
-| Random Resized Crops       | A crop of random size (default: of 0.08 to 1.0) of the original size <br>and a random aspect ratio (default: of 3/4 to 4/3) of the original aspect ratio is made.  <br> This crop is finally resized to given size.<br> This is popularly used to train the Inception networks.                                   |
+| Random Scales              | Similar to random crops. However, the shorter size of the image is resized to a valuerandomly chosen from a range instead of being fixed at 256.         |
+| Random Resized Crops       | A crop of random size (default: of 0.08 to 1.0) of the original size and a random aspect ratio (default: of 3/4 to 4/3) of the original aspect ratio is made.  <br> This crop is finally resized to given size.<br> This is popularly used to train the Inception networks.                                   |
 | Color Jittering            | Randomly change the brightness, contrast and saturation of an image.                      |
-| PAC Color Jittering        | It is a fancier way of applying color jittering.<br>Instead of randomly change the image distribution, noises are generated<br> according to the color channels' principle components.<br>The details are in AlexNet's paper.                                                       |
+| PAC Color Jittering        | It is a fancier way of applying color jittering.<br>Instead of randomly change the image distribution, noises are generated according to the color channels' principle components.<br>The details are in AlexNet's paper.                                                       |
 | AutoAugment                | A set of augmentation policies (rotation, shear, crop etc) derived <br>using reinforcement learning.                                                             |
 
