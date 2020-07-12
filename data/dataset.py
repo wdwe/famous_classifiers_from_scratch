@@ -10,9 +10,17 @@ class ResizeMultiple:
     its __call__ takes a PIL image or a list of PIL images and returns
     a list of resized images.
     """
-    def __init__(self, rescale_sizes):
+    def __init__(self, rescale_sizes, interpolation = "bilinear"):
         self.sizes = rescale_sizes
+        if interpolation == "bilinear":
+            self.interpolation = PIL.Image.BILINEAR
+        elif interpolation == "bicubic":
+            self.interpolation = PIL.Image.BICUBIC
+        else:
+            raise Exception("Unknown interpolation method")
 
+
+    interpolation = PIL.Image.BICUBIC
     def __call__(self, images):
         if not isinstance(images, list):
             images = [images]
@@ -163,6 +171,7 @@ class EvalDataset(ImageFolder):
         mean = [0.485, 0.456, 0.406],
         std = [0.229, 0.224, 0.225],
         horizontal_flip = True,
+        interpolation = "bilinear"
         fname = False
     ):
         """Initialise the class
@@ -179,6 +188,7 @@ class EvalDataset(ImageFolder):
             crop (str, None): Must be of "fivecrop", "gridcrop", "center", "googlenet" or None.
                 If this argument is None, the rescaled images are returned without cropping.
             horizontal_flip (bool): Whether to make copies of the crops' horizontal flip.
+            interpolation (str): bilinear or bicubic for resize operation
             mean (list): The RGB pixel mean for normalization.
             std (list): The RGB pixel standard deviation for normalization.
             fname (bool): Whether to return filename in __getitem__.
@@ -196,6 +206,7 @@ class EvalDataset(ImageFolder):
         self.mean = mean
         self.std = std
         self.fname = fname
+        self.interpolation = interpolation
         transforms = self._get_transforms()
         super().__init__(root = self.imdir, transform = transforms)
 
@@ -203,7 +214,7 @@ class EvalDataset(ImageFolder):
     def _get_transforms(self):
         transforms = []
         
-        transforms.append(ResizeMultiple(self.rescale_sizes))
+        transforms.append(ResizeMultiple(self.rescale_sizes, interpolation = self.interpolation))
 
         if self.center_square:
             transforms.append(CenterCropMultiple())
