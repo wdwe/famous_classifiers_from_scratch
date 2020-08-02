@@ -11,7 +11,7 @@ def accuracy(probabilities, labels, topk = (1, )):
     num_images = labels.size()[0]
     max_k = max(topk)
     _, top_cat = probabilities.topk(max_k)
-    correct = top_cat == labels
+    correct = top_cat == labels.to(top_cat.device)
     accu = [torch.sum(correct[:, :k]).type(torch.float32) / num_images for k in topk]
     return accu
 
@@ -45,10 +45,10 @@ def evaluate(model, dataloader, topk = (1, ), verbose = False, device = None):
                     # that also outputs loss, we can ignore this for evaluation
                     result, loss = model(images, torch.flatten(labels))
                     try:
-                        loss_meter.update(loss.item(), n = bs)
+                        loss_meter.update(loss.mean().item(), n = bs)
                     except:
                         loss_meter = AverageMeter()
-                        loss_meter.update(loss.item(), n = bs)
+                        loss_meter.update(loss.mean().item(), n = bs)
 
                 prob = softmax(result)
                 prob = prob.view((bs, ncrops, -1))
@@ -75,6 +75,8 @@ def evaluate(model, dataloader, topk = (1, ), verbose = False, device = None):
         return accu_meters, loss_meter
     except:
         return accu_meters
+
+
 
 if __name__ == "__main__":
     import sys
