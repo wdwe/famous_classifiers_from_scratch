@@ -24,8 +24,6 @@ def evaluate(model, dataloader, topk = (1, ), verbose = False, device = None):
 
     if device:
         model = model.to(device)
-    elif torch.cuda.is_available():
-        model = model.cuda()
 
     with torch.no_grad():
         try:
@@ -35,15 +33,23 @@ def evaluate(model, dataloader, topk = (1, ), verbose = False, device = None):
                 if device:
                     images = images.to(device)
                     labels = labels.to(device)
-                elif torch.cuda.is_available():
-                    images = images.cuda()
-                    labels = labels.cuda()
                 # remember our dataset already returns a 4D tensor of [ncorp, c, h, w]
                 # dataloader will add a new bs dimension
                 bs, ncrops, c, h, w = images.size()
                 images = images.view((-1, c, h, w))
                 labels = labels.view((bs, 1))
-                result = model(images)
+                try:
+                    result = model(images)
+                except:
+                    # in training script later, we may pass a model wrapper 
+                    # that also outputs loss, we can ignore this for evaluation
+                    result, loss = model(images, torch.flatten(labels))
+                    try:
+                        loss_meter.update(loss.item(), n = bs)
+                    except:
+                        loss_meter = AverageMeter()
+                        loss_meter.update(loss.item(), n = bs)
+
                 prob = softmax(result)
                 prob = prob.view((bs, ncrops, -1))
                 prob = torch.mean(prob, dim = 1)
@@ -64,8 +70,11 @@ def evaluate(model, dataloader, topk = (1, ), verbose = False, device = None):
     if verbose:
         for i, meter in enumerate(accu_meters):
             print(f"Top {topk[i]} accuracy: {meter.avg}")
-
-    return accu_meters
+    
+    try:
+        return accu_meters, loss_meter
+    except:
+        return accu_meters
 
 if __name__ == "__main__":
     import sys
@@ -96,7 +105,7 @@ if __name__ == "__main__":
     eval_dataset = EvalDataset(**dataset_config)
     eval_loader = DataLoader(eval_dataset, batch_size = 50, num_workers = 8)
     
-    evaluate(model, eval_loader, topk = (1, 5), verbose = True)
+    evaluate(model, eval_loader, topk = (1, 5), verbose = True, device = torch.device("cuda"))
 
     # alexnet 1 center crop
     # Top 1 accuracy: 0.5651800000572205
