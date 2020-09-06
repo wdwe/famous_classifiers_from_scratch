@@ -158,6 +158,9 @@ class NormalizeMultiple:
             tensor_images = [tensor_images]
         return [tsfm.Normalize(self.mean, self.std)(image) for image in tensor_images]
 
+class StackCrops:
+    def __call_(self, crops):
+        return torch.stack(crops)
 
 class EvalDataset(ImageFolder):
     def __init__(
@@ -235,7 +238,7 @@ class EvalDataset(ImageFolder):
         transforms.append(NormalizeMultiple(self.mean, self.std))
         # convert the list of tensors to a 4-D tensor of dims
         # [Num_crops, channels, H, W]
-        transforms.append(tsfm.Lambda(lambda crops: torch.stack(crops)))
+        transforms.append(StackCrops)
         transforms = tsfm.Compose(transforms)
 
         return transforms
