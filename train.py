@@ -5,6 +5,7 @@ import time
 from tqdm import tqdm
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 import models
 import yaml
 from data.dataset import TrainDataset, EvalDataset
@@ -13,6 +14,9 @@ from tools.utils import AverageMeter
 from tools.eval import evaluate
 from tools.eval import accuracy as compute_accuracy
 from models.utils import CustomDataParallel
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 
@@ -106,7 +110,8 @@ def train(model, params):
         interpolation = params.interpolation,
         horizontal_flip = params.horizontal_flip,
         mean = params.mean,
-        std = params.std
+        std = params.std,
+        fname = True
     )
 
     train_loader = DataLoader(
@@ -199,11 +204,11 @@ def train(model, params):
     optimizer = torch.optim.SGD(param_groups, lr = params.lr, weight_decay = params.weight_decay, momentum = params.momentum, nesterov=params.nesterov)
 
     # Let's define a learning rate scheduler that helps us reduce the learning rate by 10 times if our model's performance
-    # on the validation set ceases to increase for 3 epochs
+    # on the validation set ceases to increase for 6 epochs
     # The mode should be max, so that it stores the max previous accuracy and compares that to the new accuracy
     # that we will provide when calling scheduler.step(<new_value>).
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "max", factor = 0.1, patience = 3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "max", factor = 0.1, patience = 6)
 
     # resume from previous training
     if params.resume_path:
@@ -217,6 +222,10 @@ def train(model, params):
         scheduler.load_state_dict(ckpt_dict["scheduler_state_dict"])
         start_epoch = ckpt_dict["epoch"]
         step = ckpt_dict["step"]
+        if step != 0 and step % len(train_loader) == 0:
+            # if we have finished the whole epoch last time before we saved the checkpoint
+            # we move on to the next epoch
+            start_epoch += 1
         best_accuracy = ckpt_dict["best_accuracy"]
         print_log(f"Loaded checkpoint {params.resume_path}")
         print_log(f"Resuming from epoch {start_epoch} step {step}")
@@ -234,7 +243,8 @@ def train(model, params):
         for e in range(start_epoch, params.num_epochs):
             model.train()
             progress_bar = tqdm(range(len(train_loader)))
-            step_in_epoch = step % len(train_loader)
+            step_in_last_epoch = step % len(train_loader)
+            
             loader = iter(train_loader)
             for i in progress_bar:
                 # If we saved weights and stopped training halfway in an epoch, let's finish the remaining data in 
@@ -243,14 +253,15 @@ def train(model, params):
                 # we left behind last time. However, it is easier for us to track training, as with these few lines
                 # of code, we can align the stored epoch number correctly with the number of images trained (suppose the batch size is
                 # the same, so the number of images trained per step is the same)
-                if i < step_in_epoch:
+                if i < step_in_last_epoch:
                     progress_bar.update()
                     continue
 
-                if i == len(train_loader) - step_in_epoch:
+                if i == len(train_loader) - step_in_last_epoch:
                     # if we have finished the equivalent amount of what we left behind last time
                     # stop this epoch and move on to the next
                     break
+
 
                 data = next(loader)
                 images = data['image']
@@ -275,8 +286,11 @@ def train(model, params):
                 preds, loss = model(images, labels)
 
                 # compute accuracy for the training batch
-                batch_accu.update(compute_accuracy(preds, labels.view((-1, 1)))[0])
-
+                # Note: for the last batch or batch of odd number, the dataparallel may skip the remainder
+                # when dividing the batch evenly among the gpus, resulting in different dimension between
+                # preds and labels. Therefore, we need to take labels[:len(preds)]
+                batch_accu.update(compute_accuracy(preds, labels[:len(preds)].view((-1, 1)))[0])
+                
                 # if we use data parallel, the loss will be a vector with elements corresponding
                 # to the loss on each gpu
                 loss = loss.mean()
@@ -304,13 +318,17 @@ def train(model, params):
                 
                 if step % params.logging_interval == 0:
                     print_log(f"Epoch {e} Step {step}: Average loss is {batch_loss.avg:.4f} Training accuracy is {batch_accu.avg:.4f}")
-                    writer.add_scalars("accuracy", {"train": batch_accu.avg}, step)
-                    writer.add_scalars("loss", {"train": batch_loss.avg}, step)
+                    for j, param_group in enumerate(optimizer.param_groups):
+                        print_log(f"lr_{j} is {param_group['lr']}")
                     batch_loss.reset()
                     batch_accu.reset()
                 
+                writer.add_scalars("accuracy", {"train": batch_accu.val}, step)
+                writer.add_scalars("loss", {"train": batch_loss.val}, step)
+                for j, param_group in enumerate(optimizer.param_groups):
+                    writer.add_scalar(f"lr/lr_{j}", param_group["lr"], step)
                 # update the information of the 
-                progress_bar.set_description(f"Epoch {e}/{params.num_epochs} Step {step} Loss: {batch_loss.val:.4f}")
+                progress_bar.set_description(f"Epoch {e}/{params.num_epochs} Step {step} Loss: {batch_loss.avg:.4f} Accuracy: {batch_accu.avg:.4f}")
 
             if (e + 1) % params.saving_interval == 0:
                 save_checkpoint()
@@ -329,6 +347,7 @@ def train(model, params):
             writer.add_scalars("loss", {"val": loss_meter.avg}, step)
 
             # update learning rate scheduler
+            # scheduler.step(loss_meter.avg)
             scheduler.step(accuracy)
             
             if accuracy > best_accuracy:
@@ -343,12 +362,261 @@ def train(model, params):
 
 
 
+
+
+
+
+def train_process(gpu_id, model, train_params_file, nr):
+    params = Params(train_params_file)
+    rank = nr * params.gpus_per_node + gpu_id
+    world_size = params.gpus_per_node * params.total_nodes
+                       
+    dist.init_process_group(                                   
+    	backend='nccl',                                         
+   		init_method='env://',                                   
+    	world_size=world_size,                              
+    	rank=rank                                               
+    )
+
+
+    # let's define the specific device in the node we are on 
+    device = torch.device(f"cuda: {gpu_id}")
+    # model = alexnet()
+    # model = ModelWithLoss(model)
+    # wrap the model
+    model = model.to(device)
+    model = DDP(model, device_ids=[gpu_id])
+
+    # helper function to print and save logs
+    def print_log(string, print_time = True):
+        if print_time:
+            curr_time = time.asctime(time.localtime(time.time()))
+            string = "[ " + curr_time + " ] " + string
+        print(string)
+        log_file = os.path.join(params.work_dir, "train_log.txt")
+        with open(log_file, "a+") as log:
+            log.write(string + "\n")
+    
+    # helper function to save checkpoints
+    def save_checkpoint(best = False):
+        
+        model_state_dict = model.module.model.state_dict()
+
+        ckpt_dict = {
+            "epoch": e,
+            "step": step,
+            "model_state_dict": model_state_dict,
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
+            "best_accuracy": best_accuracy
+        }
+        ckpt_dir = os.path.join(params.work_dir, "checkpoints")
+        os.makedirs(ckpt_dir, exist_ok = True)
+        if best:
+            torch.save(ckpt_dict, os.path.join(ckpt_dir, "best.pth"))
+        else:
+            torch.save(ckpt_dict, os.path.join(ckpt_dir, f"epoch_{e}_step_{step}.pth"))
+
+
+    # tensorboard summary writer
+    if gpu_id == 0:
+        # save our training config
+        os.makedirs(params.work_dir, exist_ok = True)
+        with open(os.path.join(params.work_dir, "train_args.yaml"), "w+") as f:
+            yaml.dump(params.params, f)
+
+        # print out the settings for training
+        print_log("Below are the training settings", print_time = False)
+        for k, v in params.params.items():
+            print_log(f"{k} : {v}", print_time = False)
+            writer = SummaryWriter(os.path.join(params.work_dir, "events"))
+
+
+    # initiating dataset and loader
+    train_dir = os.path.join(params.data_root, "train")
+    train_set = TrainDataset(
+        imdir = train_dir,
+        input_size = params.input_size,
+        color_jitter = params.color_jitter,
+        resize_scale = params.resize_scale,
+        ratio = params.ratio,
+        interpolation = params.interpolation,
+        horizontal_flip = params.horizontal_flip,
+        mean = params.mean,
+        std = params.std,
+        fname = True
+    )
+
+    # torch.utils.data.distributed.DistributedSampler()
+    train_sampler = DistributedSampler(
+    	train_set,
+    	num_replicas=params.world_size,
+    	rank=rank
+    )
+
+    train_loader = DataLoader(
+        train_set, 
+        batch_size = params.train_bs, 
+        num_workers = params.num_workers,
+        sampler = train_sampler,
+        shuffle = False
+    )
+
+    # we will use center crop to evaluate the model's accuracy every epoch
+    val_dir = os.path.join(params.data_root, "val")
+    val_set = EvalDataset(
+        imdir = val_dir,
+        input_size = params.input_size,
+        mean = params.mean,
+        std = params.std,
+        rescale_sizes = params.test_rescales,
+        center_square = False,
+        crop = "center",
+        horizontal_flip = False
+    )
+
+    val_loader = DataLoader(
+        val_set,
+        batch_size = params.test_bs,
+        shuffle = False,
+        num_workers = params.num_workers
+    )
+    
+
+    # define optimizer
+    optimizer = torch.optim.SGD(model.parameters(), lr = params.lr, weight_decay = params.weight_decay, momentum = params.momentum, nesterov=params.nesterov)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "min", factor = 0.1, patience = 6)
+
+    # resume from previous training
+    # and map the gpu device for the weights
+    # As pytorch tensors have their own associated devices, and we only (need to) save the model
+    # on rank 1 gpu (which is always cuda: 0), our weights are all associated with cuda: 0.
+    # Therefore, for processes in other gpus, we need to map the saved tensors' locations to 
+    # other cuda device before we can use them. Hence the map_location dictionary
+    if params.resume_path:
+        map_location = {"cuda:0": f"cuda:{gpu_id}"}
+        ckpt_dict = torch.load(params.resume_path, map_location = map_location)
+
+        model_state_dict = ckpt_dict["model_state_dict"]
+        model.module.model.load_state_dict(model_state_dict)
+        optimizer.load_state_dict(ckpt_dict["optimizer_state_dict"])
+        scheduler.load_state_dict(ckpt_dict["scheduler_state_dict"])
+        start_epoch = ckpt_dict["epoch"]
+        step = ckpt_dict["step"]
+        if step != 0 and step % len(train_loader) == 0:
+            start_epoch += 1
+        best_accuracy = ckpt_dict["best_accuracy"]
+        print_log(f"Loaded checkpoint {params.resume_path}")
+        print_log(f"Resuming from epoch {start_epoch} step {step}")
+    else:
+        start_epoch = 0
+        step = 0
+        best_accuracy = 0
+
+
+    batch_loss = AverageMeter()
+    batch_accu = AverageMeter()
+    try:
+        for e in range(start_epoch, params.num_epochs):
+            model.train()
+            progress_bar = tqdm(range(len(train_loader)))
+            step_in_last_epoch = step % len(train_loader)
+            loader = iter(train_loader)
+            for i in progress_bar:
+                if i < step_in_last_epoch:
+                    progress_bar.update()
+                    continue
+
+                if i == len(train_loader) - step_in_last_epoch:
+                    break
+
+                data = next(loader)
+                images = data['image']
+                labels = data['label']
+                
+                # remember the device here is torch.device(f"cuda:{gpu_id}")
+                # i.e. the specific gpu we are on
+                images = images.to(device)
+                labels = labels.to(device)
+
+                preds, loss = model(images, labels)
+
+                batch_accu.update(compute_accuracy(preds, labels[:len(preds)].view((-1, 1)))[0])
+                
+                loss.backward()
+
+                batch_loss.update(loss.item())
+                
+                step += 1
+
+                optimizer.step()
+                optimizer.zero_grad()
+                
+                # we only log if the process is on the first gpu of the node
+                if gpu_id == 0:
+                    if step % params.logging_interval == 0 :
+                        print_log(f"Epoch {e} Step {step}: Average loss is {batch_loss.avg:.4f} Training accuracy is {batch_accu.avg:.4f}")
+                        for j, param_group in enumerate(optimizer.param_groups):
+                            print_log(f"lr_{j} is {param_group['lr']}")
+                        batch_loss.reset()
+                        batch_accu.reset()
+                    
+                    writer.add_scalars("accuracy", {"train": batch_accu.val}, step)
+                    writer.add_scalars("loss", {"train": batch_loss.val}, step)
+                    for j, param_group in enumerate(optimizer.param_groups):
+                        writer.add_scalar(f"lr/lr{j}", param_group["lr"], step)
+
+            # we only save the checkpoint on the device with rank 0
+            if (e + 1) % params.saving_interval == 0 and rank == 0:
+                save_checkpoint()
+
+            accu_meters, loss_meter = evaluate(model, val_loader, topk = (1, ), device = device)
+            accuracy = accu_meters[0].avg
+
+            # log if we are on gpu 0 of the node
+            if gpu_id == 0:
+                print_log(f"Accuracy is {accuracy:.4f}, loss is {loss_meter.avg:.4f} for Epoch {e} Step {step} ")
+                writer.add_scalars("accuracy", {"val": accuracy}, step)
+                writer.add_scalars("loss", {"val": loss_meter.avg}, step)
+
+            # update learning rate scheduler
+            scheduler.step(loss_meter.avg)
+            
+            # save the best accuracy check point if we are on the device with rank 0
+            if accuracy > best_accuracy and rank == 0:
+                best_accuracy = accuracy
+                save_checkpoint(best = True)
+
+
+    except KeyboardInterrupt:
+        if gpu_id == 0:
+            print_log("KeyboardInterrupt: Saving a checkpoint")
+        if rank == 0:
+            save_checkpoint()
+
+
+def distributed_train(model, train_params_file, nr):
+    os.environ['MASTER_ADDR'] = '172.17.0.3'
+    os.environ['MASTER_PORT'] = '8888'
+    # talk about using docker
+    mp.spawn(train_process, nprocs=params.gpus_per_node, args=(model, train_params_file, nr))  
+    # Note: all the args are deep copied and sent to each functions
+
+    # Function is called as the entrypoint of the spawned process. This function must be defined at 
+    # the top level of a module so it can be pickled and spawned. This is a requirement imposed by 
+    # multiprocessing.
+
+    # The function is called as fn(i, *args), where i is the process index and args is the passed 
+    # through tuple of arguments.
+
+
+
 # https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
 # why wrap model with loss can speed up and reduce memory on GPU:0
 
 if __name__ == "__main__":
     from models import alexnet
-
+    # create arg parser here
     train_params_file = sys.argv[1]
     params = Params(train_params_file)
 
@@ -356,6 +624,9 @@ if __name__ == "__main__":
     model = ModelWithLoss(model)
 
     if params.distributed:
-        distributed_train(model, params)
+        distributed_train(model, train_params_file, nr = 0)
     else:
         train(model, params)
+
+
+        # https://yangkky.github.io/2019/07/08/distributed-pytorch-tutorial.html
