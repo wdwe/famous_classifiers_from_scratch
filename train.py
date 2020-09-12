@@ -10,7 +10,7 @@ import models
 import yaml
 from data.dataset import TrainDataset, EvalDataset
 from tensorboardX import SummaryWriter
-from tools.utils import AverageMeter
+from tools.utils import AverageMeter, add_weight_decay
 from tools.eval import evaluate
 from tools.eval import accuracy as compute_accuracy
 from models.utils import CustomDataParallel
@@ -121,6 +121,7 @@ def train(model, params):
         shuffle = True
     )
 
+
     # we will use center crop to evaluate the model's accuracy every epoch
     val_dir = os.path.join(params.data_root, "val")
     val_set = EvalDataset(
@@ -162,40 +163,14 @@ def train(model, params):
     
 
     # define optimizer
-    # the code below on param_group is redundant in this case as we are in fact using the same
-    # learning rate and weight decay for all parameters. However, they are very useful when
-    # we are fine-tuning dataset or need to have different hyperparameters for different parameters.
-    try:
-        param_group_1 = {
-            'params': model.model.features.parameters(),
-            'lr': params.lr,
-            'weight_decay': params.weight_decay
-        }
-    except: # if we have the CustomDataParallel wrapper on
-        param_group_1 = {
-            'params': model.module.model.features.parameters(),
-            'lr': params.lr,
-            'weight_decay': params.weight_decay
-        }
-
-    param_list = []
-    try:
-        for name, param in model.model.named_parameters():
-            if "classifier" in name:
-                param_list.append(param)
-    except: # if we have the CustomDataParallel wrapper on
-        for name, param in model.module.model.named_parameters():
-            if "classifier" in name:
-                param_list.append(param)
-    
-    param_group_2 = {
-        'params': param_list,
-        'lr': params.lr,
-        'weight_decay': params.weight_decay
-    }
-
-    param_groups = [param_group_1, param_group_2]
-
+    # add in separate bn parameters
+    if params.weight_decay is not None:
+        # add_weight_decay separate bias and weight and bias in batchnorm from other parameters
+        # because bias terms and and weight and bias in bn should not be decayed towards zero-norm
+        # check here https://discuss.pytorch.org/t/weight-decay-in-the-optimizers-is-a-bad-idea-especially-with-batchnorm/16994/2
+        param_groups = add_weight_decay(model, params.weight_decay)
+    else:
+        param_groups = model.parameters()
 
     # it is recommended to construct an optimizer after you have done the model.cuda(),
     # as some optimizer might create buffers of the type same as the model parameters.
@@ -291,8 +266,9 @@ def train(model, params):
                 # preds and labels. Therefore, we need to take labels[:len(preds)]
                 batch_accu.update(compute_accuracy(preds, labels[:len(preds)].view((-1, 1)))[0])
                 
-                # if we use data parallel, the loss will be a vector with elements corresponding
+                # if we use data parallelism, the loss will be a vector with elements corresponding
                 # to the loss on each gpu
+                # it does not hurt if we are not using data parallelism
                 loss = loss.mean()
                 # compute dloss/dx for every parameter x that has requires_grad = True
                 # and add this dloss/dx to the parameter's gradient
@@ -381,8 +357,7 @@ def train_process(gpu_id, model, train_params_file, nr):
 
     # let's define the specific device in the node we are on 
     device = torch.device(f"cuda: {gpu_id}")
-    # model = alexnet()
-    # model = ModelWithLoss(model)
+
     # wrap the model
     model = model.to(device)
     model = DDP(model, device_ids=[gpu_id])
@@ -448,6 +423,8 @@ def train_process(gpu_id, model, train_params_file, nr):
     )
 
     # torch.utils.data.distributed.DistributedSampler()
+    # Note: the batch_size is for each gpu, so one forward pass
+    # takes in params.world_size * batch_size
     train_sampler = DistributedSampler(
     	train_set,
     	num_replicas=params.world_size,
@@ -484,6 +461,14 @@ def train_process(gpu_id, model, train_params_file, nr):
     
 
     # define optimizer
+    if params.weight_decay is not None:
+        # add_weight_decay separate bias and weight and bias in batchnorm from other parameters
+        # because bias terms and and weight and bias in bn should not be decayed towards zero-norm
+        # check here https://discuss.pytorch.org/t/weight-decay-in-the-optimizers-is-a-bad-idea-especially-with-batchnorm/16994/2
+        param_groups = add_weight_decay(model, params.weight_decay)
+    else:
+        param_groups = model.parameters()
+
     optimizer = torch.optim.SGD(model.parameters(), lr = params.lr, weight_decay = params.weight_decay, momentum = params.momentum, nesterov=params.nesterov)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "min", factor = 0.1, patience = 6)
 
@@ -593,6 +578,10 @@ def train_process(gpu_id, model, train_params_file, nr):
             print_log("KeyboardInterrupt: Saving a checkpoint")
         if rank == 0:
             save_checkpoint()
+        dist.destroy_process_group()
+    
+    dist.destroy_process_group()
+
 
 
 def distributed_train(model, train_params_file, nr):
