@@ -1,16 +1,16 @@
 ## GPU settings
 gpus: [0, 1] # it seems that gpus must be in [0, 1] instead of [1, 0]
-distributed: True
+distributed: False
 # The following args used for distributed data parallelism
 gpus_per_node: 2
 total_nodes: 1
 
 ## working directory
-work_dir: ./logs/train/alexnet_ddp/
+work_dir: ./logs/train/temp/
 
 ## resume training
 resume_path: null # read "None" in python
-# resume_path: ./logs/train/alexnet_ddp/checkpoints/best.pth
+# resume_path: ./logs/train/alexnet_ddp/checkpoints/epoch_14_step_37545.pth
 
 ## optimisation settings
 lr: 0.01
@@ -37,9 +37,7 @@ horizontal_flip: True
 mean: [0.485, 0.456, 0.406]
 std: [0.229, 0.224, 0.225]
 # for training dataloader
-train_bs: 512
+train_bs: 256 # for ddp it is equivalent to num_gpu times the number
 # for testing dataset
 test_rescales: [256]
 test_bs: 512
-
-
