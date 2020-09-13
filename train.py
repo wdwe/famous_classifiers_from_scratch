@@ -13,7 +13,6 @@ from tensorboardX import SummaryWriter
 from tools.utils import AverageMeter, add_weight_decay
 from tools.eval import evaluate
 from tools.eval import accuracy as compute_accuracy
-from models.utils import CustomDataParallel
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -64,7 +63,7 @@ def train(model, params):
     
     # helper function to save checkpoints
     def save_checkpoint(best = False):
-        if isinstance(model, CustomDataParallel):
+        if isinstance(model, nn.DataParallel):
             model_state_dict = model.module.model.state_dict()
         else:
             model_state_dict = model.model.state_dict()
@@ -150,11 +149,13 @@ def train(model, params):
             model = model.to(device)
             print_log(f"Training model on cuda: {params.gpus[0]}")
         else:
+            device = torch.device(f"cuda:{params.gpus[0]}")
+
             # for parallelism, the model on the default gpu is still the one being updated
             # however, we replicate it to the other gpu every forward and backward pass
             # for gradient computation on the data that we allocated to those gpus
             model = model.to(torch.device(f"cuda:{params.gpus[0]}")) # it seems params.gpus must be like [0, 1] instead of [1, 0]
-            model = CustomDataParallel(model, params.gpus)
+            model = nn.DataParallel(model, params.gpus)
             print_log(f"Data Parallelism is used across cuda: {params.gpus}")
 
     else:
@@ -182,14 +183,13 @@ def train(model, params):
     # on the validation set ceases to increase for 6 epochs
     # The mode should be max, so that it stores the max previous accuracy and compares that to the new accuracy
     # that we will provide when calling scheduler.step(<new_value>).
-
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "max", factor = 0.1, patience = 6)
 
     # resume from previous training
     if params.resume_path:
         ckpt_dict = torch.load(params.resume_path)
         model_state_dict = ckpt_dict["model_state_dict"]
-        if isinstance(model, CustomDataParallel):
+        if isinstance(model, nn.DataParallel):
             model.module.model.load_state_dict(model_state_dict)
         else:
             model.model.load_state_dict(model_state_dict)
@@ -237,7 +237,7 @@ def train(model, params):
                     # stop this epoch and move on to the next
                     break
 
-
+                
                 data = next(loader)
                 images = data['image']
                 labels = data['label']
@@ -250,7 +250,7 @@ def train(model, params):
                 # else:
                     # if the model is on cpu, then nothing needs to be done
                     # if multiple gpus are used, the data will be scattered to the corresponding gpus
-                    # inside the CustomDataParallel class. Nothing nees to be done here.
+                    # inside the nn.DataParallel class directly from CPU. Nothing needs to be done here.
 
 
                 # forward pass the images to get prediction and loss

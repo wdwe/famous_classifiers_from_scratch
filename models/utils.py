@@ -19,6 +19,9 @@ class ConvHeadEvalModel(nn.Module):
         return x
 
 
+
+# update, it seems that just remove the data.to(device), nn.DataParallel wiil scatter data
+# directly from cpu too, thus this class is redundant
 class CustomDataParallel(nn.DataParallel):
     """
     force splitting data to all gpus instead of sending all data to cuda:0 and then moving around.
@@ -34,6 +37,9 @@ class CustomDataParallel(nn.DataParallel):
         # as in (https://pytorch.org/tutorials/beginner/blitz/data_parallel_tutorial.html),
         # the inputs are in fact first send to the default gpu, then split and send to the corresponding
         # gpus. This is kind of redundant and leads greater usage of the default gpu 
+        
+        
+        
         devices = ['cuda:' + str(x) for x in self.device_ids]
         splits = inputs[0].shape[0] // len(self.device_ids)
 
