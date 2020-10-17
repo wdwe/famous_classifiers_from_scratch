@@ -181,8 +181,9 @@ def train(model, params):
 
     # Let's define a learning rate scheduler that helps us reduce the learning rate by 10 times if our model's performance
     # on the validation set ceases to increase for 6 epochs
-    # The mode should be max, so that it stores the max previous accuracy and compares that to the new accuracy
+    # The mode should be min, so that it stores the min previous validation loss and compares that to the new validation loss
     # that we will provide when calling scheduler.step(<new_value>).
+    # You may use "max" and validation accuracy too.
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "max", factor = 0.1, patience = 6)
 
     # resume from previous training
@@ -323,8 +324,8 @@ def train(model, params):
             writer.add_scalars("loss", {"val": loss_meter.avg}, step)
 
             # update learning rate scheduler
-            # scheduler.step(loss_meter.avg)
-            scheduler.step(accuracy)
+            scheduler.step(loss_meter.avg)
+            # scheduler.step(accuracy)
             
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
