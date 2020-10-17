@@ -588,6 +588,15 @@ def train_process(gpu_id, model, train_params_file, nr):
 def distributed_train(model, train_params_file, nr):
     os.environ['MASTER_ADDR'] = '172.17.0.3'
     os.environ['MASTER_PORT'] = '8888'
+
+    # use seed to ensure the models are initialised with the same weights
+    # it is in fact not necessary in our scripts, as I went for the not-reccommended
+    # path of sending the model parameters to other process -- in mp.spawn, the args
+    # includes the model
+    # However, if the model initiation happens in train_process(), then we need this
+    # seeding to ensure identical initialisation.
+    torch.manual_seed(0)
+
     # talk about using docker
     mp.spawn(train_process, nprocs=params.gpus_per_node, args=(model, train_params_file, nr))  
     # Note: all the args are deep copied and sent to each functions
