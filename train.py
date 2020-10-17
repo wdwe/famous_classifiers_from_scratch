@@ -585,8 +585,8 @@ def train_process(gpu_id, model, train_params_file, nr):
 
 
 
-def distributed_train(model, train_params_file, nr):
-    os.environ['MASTER_ADDR'] = '172.17.0.3'
+def distributed_train(model, gpus_per_node, train_params_file, nr):
+    os.environ['MASTER_ADDR'] = '192.168.2.1'
     os.environ['MASTER_PORT'] = '8888'
 
     # use seed to ensure the models are initialised with the same weights
@@ -598,7 +598,7 @@ def distributed_train(model, train_params_file, nr):
     torch.manual_seed(0)
 
     # talk about using docker
-    mp.spawn(train_process, nprocs=params.gpus_per_node, args=(model, train_params_file, nr))  
+    mp.spawn(train_process, nprocs=gpus_per_node, args=(model, train_params_file, nr))  
     # Note: all the args are deep copied and sent to each functions
 
     # Function is called as the entrypoint of the spawned process. This function must be defined at 
@@ -623,7 +623,7 @@ if __name__ == "__main__":
     model = ModelWithLoss(model)
 
     if params.distributed:
-        distributed_train(model, train_params_file, nr = 0)
+        distributed_train(model, params.gpus_per_node, train_params_file, nr = 0)
     else:
         train(model, params)
 
