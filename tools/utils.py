@@ -1,3 +1,5 @@
+import importlib
+
 
 class AverageMeter:
     """Computes and stores the average and current value
@@ -38,3 +40,11 @@ def add_weight_decay(model, weight_decay=1e-5, skip_list=()):
     return [
         {'params': no_decay, 'weight_decay': 0.},
         {'params': decay, 'weight_decay': weight_decay}]
+
+
+def import_class(name):
+    components = name.split('.')
+    mod = importlib.import_module(components[0])
+    for comp in components[1:]:
+        mod = getattr(mod, comp)
+    return mod
