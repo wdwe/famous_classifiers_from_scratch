@@ -22,7 +22,7 @@ nesterov: True
 ## training settings
 num_epochs: 200
 grad_accu_steps: 1
-logging_interval: 500
+logging_interval: 2000
 saving_interval: 5
 
 ## data settings
