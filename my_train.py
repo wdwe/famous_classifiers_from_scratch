@@ -10,12 +10,20 @@ import models
 import yaml
 from data.dataset import TrainDataset, EvalDataset
 from tensorboardX import SummaryWriter
-from tools.utils import AverageMeter, add_weight_decay
+from tools.utils import AverageMeter, add_weight_decay, import_class
 from tools.eval import evaluate
 from tools.eval import accuracy as compute_accuracy
 
 
+class Params:
+    def __init__(self, train_params_file):
+        with open(train_params_file) as f:
+            self.params = yaml.safe_load(f)
 
+    def __getattr__(self, item):
+        return self.params.get(item, None)
+
+        
 
 def train(model, params):
     
@@ -152,7 +160,7 @@ def train(model, params):
     # The mode should be min, so that it stores the min previous validation loss and compares that to the new validation loss
     # that we will provide when calling scheduler.step(<new_value>).
     # You may use "max" and validation accuracy too.
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "max", factor = 0.1, patience = 6)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = "min", factor = 0.1, patience = 6)
 
     # resume from previous training
     if params.resume_path:
@@ -309,10 +317,10 @@ def train(model, params):
 
 
 if __name__ == "__main__":
-    from models import alexnet
-    # create arg parser here
     train_params_file = sys.argv[1]
     params = Params(train_params_file)
+    
+    mod = import_class(params.model_name)
+    model = mod(**params.model_args)
 
-    model = alexnet()
-    model = ModelWithLoss(model)
+    train(model, params)
