@@ -33,9 +33,9 @@ import torch.nn as nn
 
 
 class Conv2dBn(nn.Module):
-    def __init__(self, in_planes, out_planes, kernel_size = 1, padding = 0):
+    def __init__(self, in_planes, out_planes, kernel_size = 1, stride = 1, padding = 0):
         super().__init__()
-        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size, padding)
+        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding)
         self.bn = nn.BatchNorm2d(out_planes)
     
     def forward(self, x):
@@ -60,21 +60,25 @@ class Inception(nn.Module):
         proj,
         use_bn = False
     ):
-    super().__init__()
+        super().__init__()
 
-    if use_bn:
-        conv_block = Conv2dBn
-    else:
-        conv_block = nn.Conv2d
+        if use_bn:
+            conv_block = Conv2dBn
+        else:
+            conv_block = nn.Conv2d
 
-    self.act = nn.ReLU()
-    self.conv1x1 = conv_block(in_planes, conv1, 1, 1)
-    self.reduce3 = conv_block(in_planes, reduce3, 1, 1)
-    self.conv3x3 = conv_block(reduce3, conv3, 3, 1, padding = 1)
-    self.reduce5 = conv_block(in_planes, reduce5, 1, 1)
-    self.conv5x5 = conv_block(reduce5, conv5, 5, 1, padding = 2)
-    self.pool = nn.MaxPool2d(3, 1, ceil_mode = True)
-    self.proj = conv_block(in_planes, proj, 1, 1)
+        self.act = nn.ReLU()
+        self.conv1x1 = conv_block(in_planes, conv1, 1, 1)
+        self.reduce3 = conv_block(in_planes, reduce3, 1, 1)
+        self.conv3x3 = conv_block(reduce3, conv3, 3, 1, padding = 1)
+        self.reduce5 = conv_block(in_planes, reduce5, 1, 1)
+        # The official torchvision used kernel_size of 3 instead, below is the comment from the
+        # official code
+        # Here, kernel_size=3 instead of kernel_size=5 is a known bug.
+        # Please see https://github.com/pytorch/vision/issues/906 for details.
+        self.conv5x5 = conv_block(reduce5, conv5, 5, 1, padding = 2)
+        self.pool = nn.MaxPool2d(3, 1, padding = 1, ceil_mode = True)
+        self.proj = conv_block(in_planes, proj, 1, 1)
 
     
 
@@ -94,7 +98,10 @@ class Inception(nn.Module):
         proj = self.pool(x)
         proj = self.proj(proj)
         proj = self.act(proj)
-
+        # print(output1x1.shape)
+        # print(output3x3.shape)
+        # print(output5x5.shape)
+        # print(proj.shape)
         output = torch.cat([output1x1, output3x3, output5x5, proj], dim = 1)
         return output
 
@@ -114,8 +121,7 @@ class SideClassifier(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d((4, 4))
         self.conv1x1 = conv_block(in_planes, 128, 1, 1)
         self.flatten = nn.Flatten()
-        fc_in = 4 * 4 * in_planes
-        self.linear1 = nn.Linear(fc_in, 1024)
+        self.linear1 = nn.Linear(4 * 4 * 128, 1024)
         self.dropout = nn.Dropout(p = 0.7)
         self.linear2 = nn.Linear(1024, num_classes)
 
@@ -134,7 +140,7 @@ class SideClassifier(nn.Module):
 
 # talk about passing blocks instead of bn parameters to simplify the function
 
-class GoogLeNet:
+class GoogLeNet(nn.Module):
     def __init__(self, num_classes = 1000, use_bn = False):
         # TODO check padding
         super().__init__()
@@ -149,7 +155,7 @@ class GoogLeNet:
             nn.ReLU(),
             nn.MaxPool2d(3, 2, ceil_mode = True), # 56 x 56
             conv_block(64, 64, 1, 1),
-            nn.ReLU()
+            nn.ReLU(),
             conv_block(64, 192, 3, 1, padding = 1), # 56 x 56
             nn.ReLU(),
             nn.MaxPool2d(3, 2, ceil_mode = True) # 28 x 28, since ceil_mode is True
@@ -165,6 +171,8 @@ class GoogLeNet:
 
         self.inception_4a = Inception(in_planes = 480, conv1 = 192, 
             reduce3 = 96, conv3 = 208, reduce5 = 16, conv5 = 48, proj = 64, use_bn = use_bn)
+
+        self.side_classifier_1 = SideClassifier(in_planes = 512, num_classes = num_classes)
 
         self.inception_4b = Inception(in_planes = 512, conv1 = 160, 
             reduce3 = 112, conv3 = 224, reduce5 = 24, conv5 = 64, proj = 64, use_bn = use_bn)
@@ -190,11 +198,11 @@ class GoogLeNet:
             # nn.AvgPool2d(7, 1),
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Dropout(p = 0.4),
-            nn.Flatten()
+            nn.Flatten(),
             nn.Linear(1024, num_classes)
         )
 
-    def forward(x):
+    def forward(self, x):
         # x is of shape 3x224x224
         x = self.stem(x)
         # 192x28x28
@@ -223,16 +231,17 @@ class GoogLeNet:
 
         if self.training:
             aux_1 = self.side_classifier_1(output_4a)
-            aux_2 = self.side_classifier_2(output_4b)
+            aux_2 = self.side_classifier_2(output_4d)
             return aux_1, aux_2, x
 
         return x
 
 
 
-class GoogLeNetWLoss(nn.Module):
-    def __init__(self, **kwargs):
-        self.model = GoogLeNet(**kwargs)
+class GoogLeNetWithLoss(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.model = GoogLeNet(*args, **kwargs)
         self.criterion = nn.CrossEntropyLoss()
 
 
