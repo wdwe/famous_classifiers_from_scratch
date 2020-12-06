@@ -1,6 +1,21 @@
 import torch
 import torch.nn as nn
 
+
+class Conv2dBn(nn.Module):
+    def __init__(self, in_planes, out_planes, kernel_size = 1, stride = 1, padding = 0):
+        super().__init__()
+        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding)
+        self.bn = nn.BatchNorm2d(out_planes)
+    
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        
+        return x
+
+
+
 class ConvHeadEvalModel(nn.Module):
     """A thin wrapper to average the output of a conv-headed model
     across all spatial dimensions
