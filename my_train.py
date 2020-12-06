@@ -23,7 +23,7 @@ class Params:
     def __getattr__(self, item):
         return self.params.get(item, None)
 
-        
+
 
 def train(model, params):
     

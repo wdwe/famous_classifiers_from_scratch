@@ -405,7 +405,8 @@ def train_process(gpu_id, model, train_params_file, nr):
         print_log("Below are the training settings", print_time = False)
         for k, v in params.params.items():
             print_log(f"{k} : {v}", print_time = False)
-            writer = SummaryWriter(os.path.join(params.work_dir, "events"))
+        
+        writer = SummaryWriter(os.path.join(params.work_dir, "events"))
 
 
     # initiating dataset and loader
