@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from .utils import Conv2dBn
 
 
 # TODO
@@ -32,18 +33,7 @@ import torch.nn as nn
 
 
 
-class Conv2dBn(nn.Module):
-    def __init__(self, in_planes, out_planes, kernel_size = 1, stride = 1, padding = 0):
-        super().__init__()
-        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding)
-        self.bn = nn.BatchNorm2d(out_planes)
-    
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        
-        return x
-    
+__all__ = ["GoogLeNet", "googlenet", "GoogLeNetWithLoss"]
 
 
 
@@ -88,20 +78,19 @@ class Inception(nn.Module):
         output1x1 = self.act(output1x1)
 
         output3x3 = self.reduce3(x)
+        output3x3 = self.act(output3x3)
         output3x3 = self.conv3x3(output3x3)
         output3x3 = self.act(output3x3)
 
         output5x5 = self.reduce5(x)
+        output5x5 = self.act(output5x5)
         output5x5 = self.conv5x5(output5x5)
         output5x5 = self.act(output5x5)
 
         proj = self.pool(x)
         proj = self.proj(proj)
         proj = self.act(proj)
-        # print(output1x1.shape)
-        # print(output3x3.shape)
-        # print(output5x5.shape)
-        # print(proj.shape)
+
         output = torch.cat([output1x1, output3x3, output5x5, proj], dim = 1)
         return output
 
@@ -238,6 +227,10 @@ class GoogLeNet(nn.Module):
 
 
 
+def googlenet(num_classes = 1000, use_bn = True):
+    return GoogLeNet(num_classes, use_bn)
+
+
 class GoogLeNetWithLoss(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -246,7 +239,7 @@ class GoogLeNetWithLoss(nn.Module):
 
 
     def forward(self, images, labels):
-        if self.train:
+        if self.model.training:
             aux1, aux2, preds = self.model(images)
             loss = 0.3 * self.criterion(aux1, labels) + 0.3 * self.criterion(aux2, labels) + \
                 self.criterion(preds, labels)
