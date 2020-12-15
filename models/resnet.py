@@ -16,10 +16,10 @@ class Block(nn.Module):
         assert not ((in_planes != out_planes) ^ (stride != 1)), \
             f"in_planes ({in_planes}) != out_planes ({out_planes}) iff stride ({stride}) != 1"
         
-        self.conv1 = Conv2dBn(in_planes, out_planes, 3, stride, padding = 1)
-        self.conv2 = Conv2dBn(in_planes, out_planes, 3, 1, padding = 1)
+        self.conv1 = Conv2dBn(in_planes, out_planes, 3, stride, padding = 1, bias = False)
+        self.conv2 = Conv2dBn(in_planes, out_planes, 3, 1, padding = 1, bias = False)
         if stride != 1:
-            self.res = Conv2dBn(in_planes, out_planes, 1, stride, padding = 0)
+            self.res = Conv2dBn(in_planes, out_planes, 1, stride, padding = 0, bias = False)
         else:
             self.res = nn.Identity()
         
@@ -41,11 +41,11 @@ class Bottleneck(nn.Module):
         assert not ((in_planes != out_planes) ^ (stride != 1)), \
             f"in_planes ({in_planes}) != out_planes ({out_planes}) iff stride ({stride}) != 1"
 
-        self.squeeze = Conv2dBn(in_planes, mid_planes, 1, stride)
-        self.conv = Conv2dBn(mid_planes, mid_planes, 3, 1, padding = 1)
-        self.expand = Conv2dBn(mid_planes, out_planes, 1, 1)
+        self.squeeze = Conv2dBn(in_planes, mid_planes, 1, stride, bias = False)
+        self.conv = Conv2dBn(mid_planes, mid_planes, 3, 1, padding = 1, bias = False)
+        self.expand = Conv2dBn(mid_planes, out_planes, 1, 1, bias = False)
         if stride != 1:
-            self.res = Conv2dBn(in_planes, out_planes, 1, stride, padding = 0)
+            self.res = Conv2dBn(in_planes, out_planes, 1, stride, padding = 0, bias = False)
         else:
             self.res = nn.Identity()
 
@@ -67,7 +67,7 @@ class ResNet(nn.Module):
         super().__init__()
 
         self.stem = nn.Sequential(
-            Conv2dBn(3, 64, 7, 2, padding = 3),
+            Conv2dBn(3, 64, 7, 2, padding = 3, bias = False),
             nn.ReLU(),
             nn.MaxPool2d(3, 2, padding = 1)
         )

@@ -3,9 +3,9 @@ import torch.nn as nn
 
 
 class Conv2dBn(nn.Module):
-    def __init__(self, in_planes, out_planes, kernel_size = 1, stride = 1, padding = 0):
+    def __init__(self, in_planes, out_planes, *args, **kwargs):
         super().__init__()
-        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding)
+        self.conv = nn.Conv2d(in_planes, out_planes, *args, **kwargs)
         self.bn = nn.BatchNorm2d(out_planes)
     
     def forward(self, x):
