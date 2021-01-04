@@ -8,16 +8,17 @@ Along the way, I have been blogging about the theories and implementation of the
 ## Content Table
 Networks/Utils | Medium Link | Remarks<sup>1</sup>
 ---|---|---
-- [x] Efficient Evaluation <br>on ImageNEt | [Evaluation](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-1-evaluation-dacfe6b29085?source=friends_link&sk=52e45a4c1f5bcdc185792d931d4ea101) |
-- [x] Training/Data Parallelism/<br>Distributed Data Parallelism| [Training/<br>(Distributed) Data Parallelism](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-3-train-distributed-data-parallelism-1d0527f15df4?source=friends_link&sk=348ff0ec1d5dc21347a7908124231159) |
-- [x] AlexNet | [AlexNet/VGG](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-2-alexnet-vgg-50a4f55f7f56?source=friends_link&sk=deb432d00bd77b4e3b723b0ee81c6d0a)| 56.67% Accuracy <br> (0.1% :arrow_up: Torchvision pretrained)
-- [x] VGG |  [AlexNet/VGG](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-2-alexnet-vgg-50a4f55f7f56?source=friends_link&sk=deb432d00bd77b4e3b723b0ee81c6d0a)|
-- [x] GoogLeNet | [GoogLeNet](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-4-googlenet-47b70899a6ce?source=friends_link&sk=1015b3a1d40cf2d6e967695ca13a9a2a)| 70.07% Accuracy <br> (0.29% :arrow_up: Torchvision Pretrained)
-- [x] ResNet | [ResNet](https://wdwe.medium.com/scratch-to-sota-build-famous-classification-nets-5-resnet-dab4f8444a43?source=friends_link&sk=5ab5957c18b7685eb2501dab4e58d684)|
-- [x] SqueezeNet 1.0 | coming soon |
-- [x] SqueezeNet 1.1 | coming soon |
-- [x] MobileNet-v1 | coming soon|
-- [ ] MobileNet-v2 | coming soon |
+:heavy_check_mark: Efficient Evaluation <br>on ImageNEt | [Evaluation](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-1-evaluation-dacfe6b29085?source=friends_link&sk=52e45a4c1f5bcdc185792d931d4ea101) |
+:heavy_check_mark: Training/Data Parallelism/<br>Distributed Data Parallelism| [Training/<br>(Distributed) Data Parallelism](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-3-train-distributed-data-parallelism-1d0527f15df4?source=friends_link&sk=348ff0ec1d5dc21347a7908124231159) |
+:heavy_check_mark: AlexNet | [AlexNet/VGG](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-2-alexnet-vgg-50a4f55f7f56?source=friends_link&sk=deb432d00bd77b4e3b723b0ee81c6d0a)| 56.67% Accuracy <br> (0.1% :arrow_up: Torchvision pretrained)
+:heavy_check_mark: VGG |  [AlexNet/VGG](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-2-alexnet-vgg-50a4f55f7f56?source=friends_link&sk=deb432d00bd77b4e3b723b0ee81c6d0a)|
+:heavy_check_mark: GoogLeNet | [GoogLeNet](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-4-googlenet-47b70899a6ce?source=friends_link&sk=1015b3a1d40cf2d6e967695ca13a9a2a)| 70.07% Accuracy <br> (0.29% :arrow_up: Torchvision Pretrained)
+:heavy_check_mark: ResNet | [ResNet](https://wdwe.medium.com/scratch-to-sota-build-famous-classification-nets-5-resnet-dab4f8444a43?source=friends_link&sk=5ab5957c18b7685eb2501dab4e58d684)|
+:heavy_check_mark: SqueezeNet 1.0 | coming soon |
+:heavy_check_mark: SqueezeNet 1.1 | coming soon |
+:heavy_check_mark: MobileNet-v1 | coming soon|
+:clock5: MobileNet-v2 | coming soon |
+:clock5: EfficientNet | - |
 
 <sup>1</sup> As with Torchvision's models evaluation accuracy, the performance is on ImageNet evaluation set with a single center crop.
 
