@@ -5,10 +5,6 @@ from .utils import Conv2dBn
 __all__ = ["ResNet", "resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]
 
 
-# check if bias needs to be false
-
-
-
 
 class Block(nn.Module):
     def __init__(self, in_planes, out_planes, stride = 1):
