@@ -3,6 +3,7 @@ import torch.nn as nn
 
 
 class Conv2dBn(nn.Module):
+    """Conv2d layers appended with Batch Normalisation"""
     def __init__(self, in_planes, out_planes, *args, **kwargs):
         super().__init__()
         self.conv = nn.Conv2d(in_planes, out_planes, *args, **kwargs)
@@ -38,8 +39,7 @@ class ConvHeadEvalModel(nn.Module):
 # update, it seems that just remove the data.to(device), nn.DataParallel wiil scatter data
 # directly from cpu too, thus this class is redundant
 class CustomDataParallel(nn.DataParallel):
-    """
-    force splitting data to all gpus instead of sending all data to cuda:0 and then moving around.
+    """Force splitting data to all gpus instead of sending all data to cuda:0 and then moving around.
     Taken and modified from https://github.com/zylo117/Yet-Another-EfficientDet-Pytorch/blob/4272fd0da2ec4d9fc3075c42cf335005a0aa49a3/utils/utils.py#L183
     """
 
