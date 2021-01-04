@@ -1,8 +1,26 @@
-# famous_classifiers_from_scratch
+# Famous Image Classification Networks from Scratch
 
-Building famous deep classification networks from scratch in PyTorch and train them to state-of-the-art performance.
+## Intorduction
 
-Evaluation
+In this repository, I build some of the very influential image classification neural networks from scratch, in PyTorch. When I have extra GPU resources to allocate, I will train some of them and try to to reach SOTA performance.<br>
+Along the way, I have been blogging about the theories and implementation of these networks. You can check them out at my [medium homepage](wdwe.medium.com) or click the friend links below in the content table.
+
+## Content Table
+Networks/Utils | Medium Link | Remarks[^footnote]
+---|---|---|---
+Efficient Evaluation <br>on ImageNEt | [Evaluation](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-1-evaluation-dacfe6b29085?source=friends_link&sk=52e45a4c1f5bcdc185792d931d4ea101) |
+Training/Data Parallelism/<br>Distributed Data Parallelism| [Training/<br>(Distributed) Data Parallelism](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-3-train-distributed-data-parallelism-1d0527f15df4?source=friends_link&sk=348ff0ec1d5dc21347a7908124231159) |
+AlexNet | [AlexNet/VGG](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-2-alexnet-vgg-50a4f55f7f56?source=friends_link&sk=deb432d00bd77b4e3b723b0ee81c6d0a)| 56.67% Accuracy <br> (0.1% :arrow_up: Torchvision pretrained)
+VGG |  [AlexNet/VGG](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-2-alexnet-vgg-50a4f55f7f56?source=friends_link&sk=deb432d00bd77b4e3b723b0ee81c6d0a)|
+GoogLeNet | [GoogLeNet](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-4-googlenet-47b70899a6ce?source=friends_link&sk=1015b3a1d40cf2d6e967695ca13a9a2a)| 70.07% Accuracy <br> (0.29% :arrow_up: Torchvision Pretrained)
+ResNet | [ResNet](https://wdwe.medium.com/scratch-to-sota-build-famous-classification-nets-5-resnet-dab4f8444a43?source=friends_link&sk=5ab5957c18b7685eb2501dab4e58d684)|
+SqueezeNet 1.0 | coming soon |
+SqueezeNet 1.1 | coming soon |
+
+[^footnote]: As with Torchvision's models evaluation accuracy, the performance is on ImageNet evaluation set with a single center crop.
+
+## Brief Summary on Common Data Augmentations
+### Test Time
 
 | Network    | ImageNet Evaluation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -13,7 +31,7 @@ Evaluation
 
 
 
-Training DataAugmentation
+### Training
 
 
 
