@@ -6,8 +6,8 @@ In this repository, I build some of the very influential image classification ne
 Along the way, I have been blogging about the theories and implementation of these networks. You can check them out at my [medium homepage](wdwe.medium.com) or click the friend links below in the content table.
 
 ## Content Table
-Networks/Utils | Medium Link | Remarks[^footnote]
----|---|---|---
+Networks/Utils | Medium Link | Remarks<sup>1</sup>
+---|---|---
 Efficient Evaluation <br>on ImageNEt | [Evaluation](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-1-evaluation-dacfe6b29085?source=friends_link&sk=52e45a4c1f5bcdc185792d931d4ea101) |
 Training/Data Parallelism/<br>Distributed Data Parallelism| [Training/<br>(Distributed) Data Parallelism](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-3-train-distributed-data-parallelism-1d0527f15df4?source=friends_link&sk=348ff0ec1d5dc21347a7908124231159) |
 AlexNet | [AlexNet/VGG](https://medium.com/swlh/scratch-to-sota-build-famous-classification-nets-2-alexnet-vgg-50a4f55f7f56?source=friends_link&sk=deb432d00bd77b4e3b723b0ee81c6d0a)| 56.67% Accuracy <br> (0.1% :arrow_up: Torchvision pretrained)
@@ -17,7 +17,7 @@ ResNet | [ResNet](https://wdwe.medium.com/scratch-to-sota-build-famous-classific
 SqueezeNet 1.0 | coming soon |
 SqueezeNet 1.1 | coming soon |
 
-[^footnote]: As with Torchvision's models evaluation accuracy, the performance is on ImageNet evaluation set with a single center crop.
+<sup>1</sup> As with Torchvision's models evaluation accuracy, the performance is on ImageNet evaluation set with a single center crop.
 
 ## Brief Summary on Common Data Augmentations
 ### Test Time
