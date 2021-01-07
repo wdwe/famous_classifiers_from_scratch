@@ -1,7 +1,7 @@
 import torch.nn as nn
 from .utils import Conv2dBn
 
-__all__ = ["MobileNetv1", "mobilenet_v1"]
+__all__ = ["MobileNetV1", "mobilenet_v1"]
 
 class DwSepConv2d(nn.Module):
     """Depth-wise separable convolution.
@@ -28,7 +28,7 @@ class DwSepConv2d(nn.Module):
         return x
 
 
-class MobileNetv1(nn.Module):
+class MobileNetV1(nn.Module):
     def __init__(self, num_classes = 1000, architecture = None):
         super().__init__()
         self.stem = Conv2dBn(3, 32, 3, 2, padding = 1)
@@ -72,7 +72,7 @@ class MobileNetv1(nn.Module):
 
 
 def mobilenet_v1(num_classes = 1000):
-    return MobileNetv1(num_classes)
+    return MobileNetV1(num_classes)
 
 if __name__ == "__main__":
     import torch
