@@ -17,7 +17,9 @@ Networks/Utils | Medium Link | Remarks<sup>1</sup>
 :heavy_check_mark: SqueezeNet 1.0 | coming soon |
 :heavy_check_mark: SqueezeNet 1.1 | coming soon |
 :heavy_check_mark: MobileNet-v1 | coming soon|
-:clock5: MobileNet-v2 | coming soon |
+:heavy_check_mark: MobileNet-v2 | coming soon |
+:clock5: ShuffleNet | - |
+:clock5: Squeeze-and-Excitation | - |
 :clock5: EfficientNet | - |
 
 <sup>1</sup> As with Torchvision's models evaluation accuracy, the performance is on ImageNet evaluation set with a single center crop.
